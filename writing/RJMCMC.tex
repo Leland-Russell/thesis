@@ -1,0 +1,162 @@
+\documentclass[12pt, reqno]{amsart}
+
+\usepackage{style}
+%\usepackage{biblatex}
+
+\begin{document}
+\section{RJMCMC for a simple mixture model}
+\subsection{The model}
+We consider derivations for sampling from the posterior over a mixture of poisson distributions using reversible-jump MCMC. Given some parameters $\theta, \tau, k$ we have that
+\begin{align*}
+y_i ~|~ \bm\theta, \bm\tau, k 		&\sim \sum_{j=1}^k \tau_j f(y_i ~|~ \theta_j).
+\intertext{Here, $\tau$ are the mixing proportions, $\theta = (\theta_1, \dots, \theta_k)$ are vectors of parameters for the models, and $k$ is the number of mixture components. Often it will be also useful to speak of an oracle variable $z_i$ indicating the mixture of $y_i$, and with prior}
+z_i ~|~ \bm\tau 		&\sim \mult(\bm\tau).
+\intertext{With an oracle, we have that}
+y_i ~|~ z_i, \bm\theta 	&\sim f(y_i ~|~ \theta_{z_i}).
+\intertext{A full model specification may be completed by setting appropriate priors:}
+\theta_j			&\sim \gam(\alpha, \beta) \tag{$j \in \{1, \dots, k\}$} \\
+\bm\tau			&\sim \dir\left(\delta, \dots, \delta\right) \\
+k 				&\sim 1/K \tag{$k \in [1,K]_{\mathbb{Z}}$}
+\intertext{where $\alpha, \beta, \delta, K$ are fixed hyperparameters, here. For the purposes of this example, we will consider a mixture of very few poisson distributions, and so we will set
+\[\alpha = 10,\ \ \ \beta = 1,\ \ \ \ \delta = 1,\ \ \ \ K = 2. \]
+For larger values of $K$ (or unbounded values), either a poisson prior, or a prior such as 
+\[f(k) = 2^{-(k+1)}\] 
+could be used. Additionally, to avoid concerns of model identifiability, Richardson and Green propose an ordering of mixture components by centrality parameters, here, by values of $\theta_j$\cite{richardson_bayesian_1997}. We follow this and stipulate that
+\[\theta_1 < \dots < \theta_k.\]
+The probability of observing this is $\frac{1}{k!}$ times that of observing any combination of the parameters $\theta_j$, and so the prior on $\bm\theta$ with this stipulation must be multiplied by a factor of $k!$. This would not matter under ordinary circumstances but changes the behavior of the sampler when dimensions change, and $k$ changes.
+}
+\end{align*}
+
+\subsection{RJMCMC moves}
+Richardson and Green \cite{richardson_bayesian_1997} propose methods for using RJMCMC to estimate mixture models of gaussian models. They propose moves to facilitate (for this model)
+\begin{enumerate}
+\item[(a)] Updating the weights $\tau$
+\item[(b)] Updating parameters $\theta$
+\item[(c)] Updating allocations $z$
+\item[(d.i)] Splitting one mixture into two
+\item[(d.ii)] Combining two mixtures into one
+\item[(e.i)] The birth an empty component
+\item[(e.ii)] The death of an empty component
+\end{enumerate}
+A single iteration of RJMCMC involves one of each type of move, either (d.i) or (d.ii) and likewise either (e.i) or (e.ii). Furthermore, while RJMCMC is framed as a modification of MH, it will be more efficient to update (a), (b), and (c) as gibbs updates (which is itself a particular form of MH). Moves (d) and (e) though are treated as MH updates with proper acceptance/rejection probabilities. The moves for (a), (b), and (c) are detailed here briefly before moving onto (d) and (e).
+
+\subsubsection{Updating weights}
+We update the weights conditional on the oracle assignments $z$ which have a multinomial prior, conjugate to the dirichlet. So, 
+\[ \bm\tau ~|~ \bm{z} = \dir(\delta + \bm{n}) \]
+where 
+\[\bm{n} = \left(|\{i ~|~ z_i = 1\}|, \dots, |\{i ~|~ z_i = k\}|\right) \]
+is a vector indicating the number of observations assigned to each component.
+
+\subsubsection{Updating model parameters}
+The poisson is univariate, so there is a single update. In particular we have
+\[ \theta_j ~|~ \bm{z}, \bm{y} \sim \gam\left( \alpha + \sum_{i:z_i = j} y_i, \beta + n_j\right) \]
+
+\subsubsection{Updating allocations}
+We update the allocations $z$ as the densities under each component weighted by the mixture weights:
+\[f(z_i = j~|~ y_i, \bm\theta, \bm\tau) \propto \tau_j f(y_i ~|~ \theta_j) \] %}{\sum_{j=1}^kw_{ij}}. \]
+
+\subsubsection{Split/Merge moves}
+As mentioned earlier, the split/merge moves are conditionally accepted with a traditional metropolis proposal in contrast to the model parameters which are updated as under a gibbs sampler. Furthermore, the split/merge moves and the birth/death moves are the only moves that change the dimension of the parameters, and so they are the only moves requiring the jacobian under RJMCMC. First though, to merge mixture components, two adjacent components $j$, $j+1$, are selected to be merged, and a new component $j^*$ is created with parameters
+\[
+\theta_{j^*} = \tau_j\theta_j + \tau_{j+1}\theta_{j+1} \hspace{0.25\linewidth} \tau_{j^*} = \tau_j + \tau_{j+1}
+\]
+Formally though, we need to think about an invertible map $h$ mapping
+\[h: (\theta_j, \theta_{j+1}, \tau_j, \tau_{j+1}) \mapsto (\tau_j\theta_j + \tau_{j+1}\theta_{j+1}, \tau_j + \tau_{j+1}, w_1, w_2) \]
+where $w_1, w_2$ are some noise parameters allowing $h$ to be invertible. Here we choose
+\[ w_1 = \frac{\tau_j}{\tau_j + \tau_{j+1}} \hspace{0.25\linewidth} w_2 = \frac{\tau_j\theta_j}{\tau_j\theta_j + \tau_{j+1}\theta_{j+1}}
+\]
+which allow for the inverse
+\[h^{-1}: (\theta_{j^*}, \tau_{j^*}, w_1, w_2) \mapsto \left(\frac{\theta_{j^*}w_2}{\tau_{j^*}w_1}, \frac{\theta_{j^*}(1-w_2)}{\tau_{j^*}(1-w_1)}, \tau_{j^*}w_1, \tau_{j^*}(1-w_1) \right)\]
+And we compute that
+\[\tau_{j^*}w_1 = (\tau_{j} + \tau_{j+1})\frac{\tau_{j}}{\tau_j + \tau_{j+1}} = \tau_j \hspace{0.1\linewidth} \frac{\theta_{j^*}w_2}{\tau_{j^*}w_1} = \frac{(\tau_j\theta_{j} + \tau_{j+1}\theta_{j+1})\frac{\tau_j\theta_j}{\tau_j\theta_j + \tau_{j+1}\theta_{j+1}}}{\tau_j} = \frac{\tau_j\theta_j}{\tau_j} = \theta_j \]
+confirming that the first weight $\tau_j$ and the first parameter $\theta_j$ are recovered. The same computation yields that $\tau_{j+1}$ and $\theta_{j+1}$ are recovered. So merging components is well defined, but this also defines the procedure for splitting a component. In particular, we sample some values $w_1, w_2$ from the unit interval, and choose some mixture component $j$, computing $h^{-1}(\theta_j, \tau_j, w_1, w_2)$. Richardson and Green suggest that
+\[w_1, w_2 \overset{\iid}\sim \Beta(2,2). \]
+
+There is no concern violating identifiability with the merge procedure: indeed, one may compute that $\theta_{j^*}$ is both greater than $\theta_j$ (because $\theta_{j+1}$ is greater and gets weight relative to $\tau_{j+1}$) and less than $\theta_{j+1}$ (for the same reason). However, when executing the split procedure, it may be that the two resulting components do not necessarily agree with the existing order of parameters. In this case, we reject the split procedure. Although, with a mixture of at most two distributions, we will not consider this case further.
+
+The only remaining task for ensuring split/merge procedures work well is to compute the Jacobian, ensuring detailed balance with the metropolis proposals. As all but two parameters per class are untouched in the merge procedure, the jacobian is equal to
+\begin{align*} 
+\left|\pdev{h(\theta_j, \theta_{j+1}, \tau_j, \tau_{j+1})}{(\theta_j, \theta_{j+1}, \tau_j, \tau_{j+1})}\right| &= \begin{vmatrix}
+\pdev{\theta_{j^*}}{\theta_j} & \pdev{\theta_{j^*}}{\theta_{j+1}} & \pdev{\theta_{j^*}}{\tau_{j}} & \pdev{\theta_{j^*}}{\tau_{j+1}} \\
+\pdev{\tau_{j^*}}{\theta_j} & \pdev{\tau_{j^*}}{\theta_{j+1}} & \pdev{\tau_{j^*}}{\tau_j} & \pdev{\tau_{j^*}}{\tau_{j+1}} \\
+\pdev{w_1}{\theta_j} & \pdev{w_1}{\theta_{j+1}} & \pdev{w_1}{\tau_j} & \pdev{w_1}{\tau_{j+1}} \\
+\pdev{w_2}{\theta_j} & \pdev{w_2}{\theta_{j+1}} & \pdev{w_2}{\tau_j} & \pdev{w_2}{\tau_{j+1}} \\
+\end{vmatrix}
+\intertext{which we compute to be}
+&= \begin{vmatrix}
+\tau_j & \tau_{j+1} & \theta_j & \theta_{j+1} \\
+0 & 0 & 1 & 1\\
+0 & 0 & \frac{\tau_{j+1}}{(\tau_j + \tau_{j+1})^2} & -\frac{\tau_j}{(\tau_j + \tau_{j+1})^2} \\
+\frac{\tau_j\tau_{j+1}\theta_{j+1}}{(\tau_j\theta_j + \tau_{j+1}\theta_{j+1})^2} &
+-\frac{\tau_j^2\theta_j}{(\tau_j\theta_j + \tau_{j+1}\theta_{j+1})^2} & 
+\frac{\theta_j\theta_{j+1}\tau_{j+1}}{(\tau_j\theta_j + \tau_{j+1}\theta_{j+1})^2} & 
+-\frac{\theta_j^2\tau_j}{(\tau_j\theta_j + \theta_{j+1}\tau_{j+1})^2} \\
+\end{vmatrix} \\
+&= \frac{\tau_j(\theta_j\tau_j^2 + \theta_{j+1}\tau_{j+1}^2)}{(\tau_j + \tau_{j+1})(\tau_j\theta_j + \tau_{j+1}\theta_{j+1})^2}.
+\intertext{So we can compute that the acceptance probability is}
+A &= \frac{L'}{L} \cdot \frac{f(k-1)}{f(k)} \cdot \frac{(k-1)!}{k!} \cdot \frac{f(\bm\theta')}{f(\bm\theta)} \cdot \frac{f(\bm\tau')}{f(\bm\tau)}  \cdot \cdots \\
+&\indent \indent \cdots \cdot \frac{p_{split}(k-1)\cdot f(w_1)f(w_2)}{p_{merge}(k)/\binom{k}{2}} \cdot \left|\pdev{h(\theta_j, \theta_{j+1}, \tau_j, \tau_{j+1})}{(\theta_j, \theta_{j+1}, \tau_j, \tau_{j+1})}\right| 
+\intertext{Where $L'/L$ is the ratio of the proposed likelihood to the old likelihood, $f(k)$ is the density of the prior for $k$, the factor of $\frac{(k-1)!}{k!}$ is because the density of order statistics is $k!$ times the density of the individual densities, of which there are one per dimension. The next two terms are the priors on $\bm\theta$ and $\bm\tau$. The second-to-last term is the probability of going to and from the previous state to the new state, with the densities the two weight parameters $w_1, w_2$ being necessary to consider returning. The binomial coefficient is present because this is the probability of choosing these particular components to merge. Many of these terms reduce, giving}
+&= \frac{L'}{L} \frac{f(k-1)}{f(k) \cdot k} \frac{f(\theta_{j^*})}{f(\theta_j, \theta_{j+1})} \frac{f(\tau_{j^*})}{f(\tau_j, \tau_{j+1})}\cdots
+\intertext{with the remainder staying the same. Furthermore, since we are working with a mixture of one or two distributions, given $k$, there is a deterministic choice of whether to propose a split or a merge (split on $k = 1$, merge on $k = 2$). Furthermore, the priors on $\tau$ become substantially less interesting in this case as well, with the numerator being a point mass on one, and the denominator being the density of a Beta($\delta, \delta)$ distribution:}
+&= \frac{L'}{L} \frac{f_K(1)}{2f_K(2)} \frac{f(\theta_{j^*})}{f(\theta_j, \theta_{j+1})} \frac{B(\delta, \delta)}{(\tau_1\tau_{2})^{1-\delta}} f(w_1)f(w_2)\cdot \left|\pdev{h(\theta_j, \theta_{j+1}, \tau_j, \tau_{j+1})}{(\theta_j, \theta_{j+1}, \tau_j, \tau_{j+1})}\right| 
+\intertext{Furthermore, since $K$ is a uniform distribution, the second term is unital, and the third term can be computed as}
+\frac{f(\theta_{j^*})}{f(\theta_j, \theta_{j+1})} &= \frac{\Gamma(\alpha)\Gamma(\alpha)}{\Gamma(\alpha)} \cdot \frac{\beta^\alpha}{\beta^\alpha\beta^\alpha} \cdot \frac{\theta_{j^*}^{\alpha-1}}{\theta_j^{\alpha-1}\theta_{j+1}^{\alpha-1}}\frac{e^{-\beta \theta_{j^*}}}{e^{-\beta\theta_{j}}e^{-\beta\theta_{j+1}}}, \\
+&= \frac{\Gamma(\alpha)}{\beta^\alpha} \left(\frac{\theta_{j^*}}{\theta_j\theta_{j+1}}\right)^{\alpha-1} e^{-\beta(\theta_{j^*} - (\theta_j + \theta_{j+1})}.
+\intertext{The only remaining term to compute is the ratio of likelihoods, which is}
+\frac{L'}{L} &= \frac{\prod_{i=1}^n \theta_{j^*}^{y_i}e^{-\theta_{j^*}}}{\prod_{i=1}^n \theta_{z_i}^{y_i} e^{-\theta_{z_i}}} = \frac{\theta_{j^*}^{n\bar{y}} e^{-n\theta_{j^*}}}{\theta_1^{\sum_{i:z_i=1}y_i}\theta_2^{\sum_{i:z_i=2}} e^{-(n_1\theta_1 + n_2\theta_2)}}.
+\intertext{The acceptance probability for the split procedure is in most cases the inverse of the above---in particular, the first, second, third, fourth, fifth, and sixth terms remain the inverse. Only the jacobian has to change. We compute that the new jacobian is}
+\left|\pdev{h^{-1}(\theta_j, \tau_j, w_1, w_2)}{(\theta_j, \tau_j, w_1, w_2)}\right| &= \begin{vmatrix}
+\pdev{\theta_j}{\theta_{j^*}} & \pdev{\theta_{j+1}}{\theta_{j^*}} & \pdev{\tau_j}{\theta_{j^*}} & \pdev{\tau_{j+1}}{\theta_{j^*}} \\
+\pdev{\theta_j}{\theta_{\tau_{j^*}}} & \pdev{\theta_{j+1}}{\tau_{j^*}} & \pdev{\tau_j}{\tau_{j^*}} & \pdev{\tau_{j+1}}{\tau_{j^*}} \\
+\pdev{\theta_j}{w_1} & \pdev{\theta_{j+1}}{w_1} & \pdev{\tau_j}{w_1} & \pdev{\tau_{j+1}}{w_1} \\
+\pdev{\theta_j}{w_2} & \pdev{\theta_{j+1}}{w_2} & \pdev{\tau_j}{w_2} & \pdev{\tau_{j+1}}{w_2} \\
+\end{vmatrix}
+\intertext{which we compute as}
+&= 
+\begin{vmatrix}
+\frac{w_2}{\tau_{j^*}w_1} & \frac{1-w_2}{\tau_{j^*}(1-w_1)} & 0 & 0 \\
+-\frac{\theta_{j^*}w_2}{\tau_{j^*}^2w_1} & -\frac{\theta_{j^*}(1-w_2)}{\tau_{j^*}^2(1-w_1)} & w_1 & 1-w_1\\
+-\frac{\theta_{j^*}w_2}{\tau_{j^*}w_1^2} & \frac{\theta_{j^*}(1-w_2)}{\tau_{j^*}(1-w_1)^2} & \tau_{j^*}& -\tau_{j^*}\\
+\frac{\theta_{j^*}}{\tau_{j^*}w_1}& -\frac{\theta_{j^*}}{\tau_{j^*}(1-w_1)} & 0 & 0 \\
+\end{vmatrix} \\
+&= \frac{\theta_{j^*}}{\tau_{j^*}w_1(1 - w_1)}
+\intertext{and the remainder of the acceptance probability is known.}
+\end{align*}
+
+\subsubsection{Birth/Death proposals}
+For a new mixture component to be born, we sample a value for the weight of the new component and a parameter for this new component. Richardson and Green suggest that the weight is sampled from
+\begin{align*}
+\tau_j &\sim \Beta(1, k)
+\intertext{where $k$ is the previous number of mixture components. We then set $\tau_\ell^* = \tau_\ell(1-\tau_j)$ for any other $\ell \neq j$. The expected weight for a new component is then $\E[\tau_j] = \frac{1}{k+1}$, and it can be shown by induction that the (prior) expectation of any of the other weights is also $\E[\tau_\ell] = \frac{1}{k+1}$. In the reverse direction, removing some component $j$, we rescale $\tau_{\ell}^* = \frac{\tau_{\ell}}{1-\tau_j}$, and the sampled value is recovered to be exactly $\tau_j$. To sample the new parameters, we sample from the prior:}
+\theta_j &\sim \gam(\alpha, \beta),
+\intertext{and to ensure that the $\theta_\ell$ are strictly increasing, $\theta_j$ is given the appropriate index---we will still refer to this component as the $j$-th component. The inverse of this operation is to simply remove a(n empty) component and rescale the weights:
+\[\tau_\ell^* = \frac{\tau_\ell}{\sum_{r \neq j} \tau_r}. \]
+The birth and death operations are largely identity operations except for their modifications of the weights. Indeed, the new parameters are created from nothing, and so the jacobian of the mapping of the parameters to or from the noise is uninteresting. Furthermore, we will take the new component to be inserted into position $k+1$ without loss of generality. So, for a birth proposal, the jacobian reduces to}
+\left|\pdev{(\tau^*_1, \dots, \tau^*_{k}, \tau_{k+1})}{(\tau_1, \dots, \tau_k, \tau_{k+1})}\right| &= 
+\begin{vmatrix}
+\pdev{\tau^*_1}{\tau_1} & \dots & \pdev{\tau^*_k}{\tau_1} & \pdev{\tau^*_{k+1}}{\tau_1} \\
+\vdots & \ddots & \vdots & \vdots \\
+\pdev{\tau^*_1}{\tau_k} & \dots & \pdev{\tau^*_k}{\tau_k} & \pdev{\tau^*_{k+1}}{\tau_k} \\
+\pdev{\tau^*_1}{\tau_{k+1}} & \dots & \pdev{\tau^*_k}{\tau_{k+1}} & \pdev{\tau^*_{k+1}}{\tau_{k+1}} \\
+\end{vmatrix} \\
+&= \begin{vmatrix}
+(1-\tau_{k+1})I_k & 0 \\
+-\bm\tau & 1 \\
+\end{vmatrix}
+\intertext{but this is lower-triangular so the determinant is $(1-\tau_{k+1})^k$. Furthermore, unlike with the split/merge case, the jacobian of the death case is the inverse, $(1-\tau_{j^*})^{-k}$. The metropolis acceptance probability for the birth move is then,}
+A &= \frac{L'}{L} \frac{f(k+1)}{f(k) \cdot (k+1)} \frac{f(\bm\theta, \theta_{j^*})}{f(\bm\theta)} \frac{g_{\delta\delta}(\bm\tau, \tau_{j^*})}{g_{\delta\delta}(\bm\tau)} 
+\frac{p_{death}(k)/(k_0 + 1)}{p_{birth}(k+1) f(\theta_{j^*})g_{1k}(\tau_{j^*})} (1-\tau_{j^*})^k.
+\intertext{Where $k_0$ is the number of empty components and $g_{\alpha,\beta}$ is the density of a $\Beta(\alpha\beta)$ distribution. since $k = 1$ or $2$, when we are birthing a component, there is one component $k=1$, which necessarily cannot be empty, so $k_0 = 0$. The likelihood ratio and ratio of priors on $k$ are unitary, furthermore, $p_{birth}$ and $p_{death}$ at the two dimensions are exactly one. Finally, the remaining terms reduce to}
+&= \frac{1}{2}f(\theta_{j^*}) g_{\delta\delta}(\tau_{j^*}) (1-\tau_{j^*}) \frac{1}{f(\theta_{j^*}) g_{1k}(\tau_{j^*})} \\
+&= \frac{1}{2}\frac{g_{\delta\delta}(\tau_{j^*})}{g_{1k}(\tau_{j^*})} (1-\tau_{j^*})
+\intertext{and all of these values are known. The inverse operation, effecting a component's death, has acceptance probability equal to the inverse of the above since the jacobian is the inverse in this case.}
+\end{align*}
+
+\newpage
+{
+\bibliographystyle{plain}
+\bibliography{refs}
+}
+
+\end{document}

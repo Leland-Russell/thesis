@@ -1,0 +1,243 @@
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(gtools)
+```
+
+```{r simulation}
+J = 2             # number of mixture components
+N = 1e3           # number of observations - change to see different behavior
+tau = c(0.3,0.7)  # mixture weights
+lambda = c(5,0.5)   # weights
+# we will use mixture of exponential distributions here.
+
+data = data.frame(group = NA, obs = NA)
+
+for (i in 1:N) {
+  group = sample(1:J, 1, prob = tau)
+  obs = rpois(1, lambda[group])
+  data[i,] = c(group, obs)
+}
+
+ggplot(data, aes(x = obs)) +
+  geom_histogram(binwidth = 1, linewidth = 0.5, color = "grey60")
+```
+
+```{r update functions}
+update_tau = function (z, k, delta) {
+  pop_sizes = sapply(1:k, function (j) {sum(z == j)})
+  return (gtools::rdirichlet(1, delta + pop_sizes))
+}
+
+update_theta = function (z, k, y, alpha, beta) {
+  pop_sizes = sapply(1:k, function (j) {sum(z == j)})
+  sum_squares = sapply(1:k, function (j) {
+    sum(y[which(z == j)])
+  })
+  return (rgamma(k, alpha + sum_squares, beta + pop_sizes))
+}
+
+update_z = function (y, theta, tau, k) {
+  return (
+    sapply(
+      y,
+      function (yi) {
+        sample(
+          1:k, 1,
+          prob = sapply(1:k, function (j) {
+            tau[j] * dpois(yi, lambda = theta[j])
+          })
+        )
+      }
+    )
+  )
+}
+
+split_merge = function (y, theta, tau, z, k, K) {
+  if (k == 1) {
+    return (split(y, theta, tau, z, delta) )
+  } else {
+    return (merge(y, theta, tau, z, delta))
+  }
+}
+
+split = function (y, theta, tau, z, delta) {
+  w = rbeta(2,2,2)
+  oldtheta = theta
+  oldtau = tau
+  # if we are splitting, k = 1, so tau = 1
+  tau = c(w[1], (1-w[1]))
+  # if we are splitting, k = 1, so theta is one thing
+  theta = c(theta * w[2]/tau[1], theta * w[2]/tau[2])
+  Jacobian = log(oldtheta/(oldtau*w[1] * (1-w[1])))
+  A = -sm_acceptance_no_jac(
+    oldtheta = theta, oldtau = tau,
+    theta = oldtheta, tau = oldtau,
+    w = w, y = y, z = z, delta = delta
+  ) + Jacobian
+  if (runif(1) < exp(A)) {
+    # don't need min(1, A) because 1 <= A if min(1, A) = 1
+    # accept the move
+    z = update_z(y, theta, tau, 2)
+    return (list(theta = theta, tau = tau, z = z))
+  } else {
+    return (list(theta = oldtheta, tau = oldtau, z = z))
+  }
+}
+
+merge = function (y, theta, tau, z, delta) {
+  w = c( # two weights imply the denominator sums to one
+    tau[1], 
+    (theta * tau)[1]/(sum(theta * tau))
+  )
+  
+  oldtheta = theta
+  oldtau = tau
+  theta = sum(theta * tau)
+  tau = 1
+  Jacobian = log(oldtau[1] * 
+    (oldtheta[1] * oldtau[1]^2 + oldtheta[2]*oldtau[2]^2)/
+    (1 * (theta)^2))
+  
+  A = sm_acceptance_no_jac(oldtheta, oldtau, theta, tau, w, y, z = z, delta) + Jacobian
+  if (runif(1) < exp(A)) {
+    z = rep(1, length(y))
+    return (list(theta = theta, tau = tau, z = z))
+  } else {
+    return (list(theta = oldtheta, tau = oldtau, z = z))
+  }
+}
+
+# split-merge acceptance ratio without the jacobian
+sm_acceptance_no_jac = function (oldtheta, oldtau, theta, tau, w, y, z, delta) {
+  # theta is of length one
+  # old theta is of length two
+  log_lik_ratio = sum(y) * log(theta) -length(y)*theta
+  log_lik_ratio = log_lik_ratio - (sum(y[z == 1]) * log(oldtheta[1]) + sum(y[z==2])) * log(oldtheta[2])
+  beta_density = -dbeta(oldtau[1], delta, delta, log = T)
+  prior_ratio = dgamma(theta, alpha, beta, log = T) -
+    (dgamma(oldtheta[1], alpha, beta, log = T) + dgamma(oldtheta[2], alpha, beta, log = T))
+  weight_density = dbeta(w[1], 2,2) * dbeta(w[2], 2,2, log = T)
+  return (-log(2) + log_lik_ratio + prior_ratio + beta_density + weight_density)
+}
+
+birth_death = function (y, theta, tau, z, k) {
+  if (k == 1) {
+    return (birth(y, theta, tau, z, k, alpha, beta)) 
+  } else {
+    return (death(y, theta, tau, z, k, alpha, beta))
+  }
+}
+
+birth = function (y, theta, tau, z, k, alpha, beta) {
+  oldtheta = theta
+  oldtau = tau
+  theta = c(theta, rgamma(1, alpha, beta))
+  t = rbeta(1,1,1)
+  tau = c(tau*(1-t), t)
+  
+  A = birth_death_acceptance_ratio(t, delta, k)
+  if (runif(1) < A) {
+    return (list(theta = theta, tau = tau))
+  } else {
+    return (list(theta = oldtheta, tau = oldtau))
+  }
+}
+
+death = function (y, theta, tau, z, k, alpha, beta) {
+  if (length(setdiff(z, 1:2)) == 0) {
+    return (list(theta = theta, tau = tau)) # instantly rejected
+  }
+  missing = setdiff(z, 1:2)
+  not_missing = setdiff(1:2, missing)
+  oldtheta = theta
+  oldtau = tau
+  theta = theta[notmissing]
+  noise = tau[missing]
+  tau = 1
+  
+  A = 1/birth_death_acceptance_ratio(noise, delta, k)
+  if (runif(1) < A) {
+    return (lsit(theta = theta, tau = tau))
+  } else {
+    return (list(theta = oldtheta, theta = oldtau))
+  }
+}
+
+birth_death_acceptance_ratio = function (tau, delta, k) {
+  # the ratio for when k = 1
+  return (
+    1/2 * dbeta(tau, delta, delta)/dbeta(tau, 1, k) * (1-tau)
+  )
+}
+```
+
+
+```{r RJMCMC run}
+set.seed(1)
+M = 1e3 # number of iterations
+
+params = c()
+
+alpha = 10 # priors
+beta = 1
+delta = 1
+
+pars = list(
+  theta = rgamma(1, alpha, beta),
+  tau = 1,
+  k = 1#,
+#  z = rep(1, N)
+)
+z = rep(1, N)
+
+y = data$obs
+
+# runs slowly if the z are saved in the theta
+# already runs kind of slowly
+for (i in 1:M) {
+  pars$tau = update_tau(z, pars$k, delta)
+  pars$theta = update_theta(z, pars$k, y, alpha, beta)
+  z = update_z(y, pars$theta, pars$tau, pars$k)
+  
+  sm = split_merge(y, pars$theta, pars$tau, z, pars$k, 2)
+  pars$theta = sm$theta
+  pars$tau = sm$tau
+  z = sm$z
+  pars$k = length(pars$tau)
+  
+  bd = birth_death(y, pars$theta, pars$tau, z, pars$k)
+  pars$theta = bd$theta
+  pars$tau = bd$tau
+  
+  params[[i]] = pars
+}
+```
+
+```{r analysis}
+agg_data = data.frame(
+  i = 1:M,
+  theta1 = sapply(1:M, function (i) {params[[i]]$theta[1]}),
+  theta2 = sapply(1:M, function (i) {params[[i]]$theta[2]}),
+  tau1 = sapply(1:M, function (i) {params[[i]]$tau[1]}),
+  tau2 = sapply(1:M, function (i) {params[[i]]$tau[2]})
+) %>%
+  filter(i > 100) # burn-in
+
+agg_data %>%
+  ggplot(aes(i)) +
+  geom_line(aes(y = theta1, color = "theta1")) +
+  geom_line(aes(y = theta2, color = "theta2")) +
+  geom_hline(yintercept = c(0.5, 5))
+
+agg_data %>%
+  ggplot(aes(i)) +
+  geom_line(aes(y = tau1, color = "tau1")) +
+  geom_line(aes(y = tau2, color = "tau2")) +
+  geom_hline(yintercept = c(0.3, 0.7))
+```
+
+
+
+
