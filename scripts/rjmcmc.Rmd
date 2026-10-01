@@ -3,25 +3,32 @@
 library(ggplot2)
 library(dplyr)
 library(gtools)
+library(matrixStats)
 ```
 
 ```{r simulation}
-J = 2             # number of mixture components
-N = 1e3           # number of observations - change to see different behavior
-tau = c(0.3,0.7)  # mixture weights
-lambda = c(5,0.5)   # weights
-# we will use mixture of exponential distributions here.
-
-data = data.frame(group = NA, obs = NA)
-
-for (i in 1:N) {
-  group = sample(1:J, 1, prob = tau)
-  obs = rpois(1, lambda[group])
-  data[i,] = c(group, obs)
+make_sim = function (N, lambda, tau) {
+  J = 2             # number of mixture components
+  # we will use mixture of exponential distributions here.
+  
+  data = data.frame(group = NA, obs = NA)
+  
+  for (i in 1:N) {
+    group = sample(1:J, 1, prob = tau)
+    obs = rpois(1, lambda[group])
+    data[i,] = c(group, obs)
+  }
+  return (data)
 }
 
+data = make_sim(1e2, c(5,0.5), c(0.3,0.7))
+alt_data = make_sim(1e2, c(5,0.5), c(1,0)) # no mixture case
 ggplot(data, aes(x = obs)) +
   geom_histogram(binwidth = 1, linewidth = 0.5, color = "grey60")
+
+ggplot(alt_data, aes(x =obs)) +
+  geom_histogram(binwidth = 1, linewidth = 0.5, color = "grey60")
+
 ```
 
 ```{r update functions}
@@ -69,7 +76,7 @@ split = function (y, theta, tau, z, delta) {
   # if we are splitting, k = 1, so tau = 1
   tau = c(w[1], (1-w[1]))
   # if we are splitting, k = 1, so theta is one thing
-  theta = c(theta * w[2]/tau[1], theta * w[2]/tau[2])
+  theta = c(theta * w[2]/tau[1], theta * (1-w[2])/tau[2])
   Jacobian = log(oldtheta/(oldtau*w[1] * (1-w[1])))
   A = -sm_acceptance_no_jac(
     oldtheta = theta, oldtau = tau,
@@ -113,8 +120,8 @@ merge = function (y, theta, tau, z, delta) {
 sm_acceptance_no_jac = function (oldtheta, oldtau, theta, tau, w, y, z, delta) {
   # theta is of length one
   # old theta is of length two
-  log_lik_ratio = sum(y) * log(theta) -length(y)*theta
-  log_lik_ratio = log_lik_ratio - (sum(y[z == 1]) * log(oldtheta[1]) + sum(y[z==2])) * log(oldtheta[2])
+  log_lik_ratio = sum(dpois(y, theta, log = T)) - 
+    (sum(dpois(y[z == 1], oldtheta[1], log = T)) + sum(dpois(y[z==2],oldtheta[2], log=T)))
   beta_density = -dbeta(oldtau[1], delta, delta, log = T)
   prior_ratio = dgamma(theta, alpha, beta, log = T) -
     (dgamma(oldtheta[1], alpha, beta, log = T) + dgamma(oldtheta[2], alpha, beta, log = T))
@@ -171,73 +178,176 @@ birth_death_acceptance_ratio = function (tau, delta, k) {
     1/2 * dbeta(tau, delta, delta)/dbeta(tau, 1, k) * (1-tau)
   )
 }
+
+log_prior = function (y, theta, tau, z, k, alpha, beta, delta) {
+  prior_log_lik = sum(dgamma(theta, alpha, beta, log = T))
+  prior_log_lik = prior_log_lik + sum(dbeta(tau, delta, delta, log = T))
+  prior_log_lik = prior_log_lik - log(2) # for k
+  
+  prior_z = sapply(1:length(y), function (i) {
+    z_probs = sapply(1:k, function (j) {
+      log(tau[j]) + dpois(y[i], lambda = theta[j], log = T)
+    })
+    
+    return (z_probs[z[i]] - matrixStats::logSumExp(z_probs))
+  })
+  prior_log_lik = prior_log_lik + sum(prior_z)
+  return(prior_log_lik)
+}
+
+complete_log_post = function (y, theta, tau, z, k, alpha, beta, delta) {
+  log_liks = sapply(1:k, function (j) {
+    sum(dpois(y[z == j], theta[j], log = T))
+  })
+  return (
+    sum(log_liks) + log_prior(y, theta, tau, z, k, alpha, beta, delta)
+  )
+}
+
+log_post = function (y, theta, tau, z, k, alpha, beta, delta) {
+  log_liks = sapply(y, function (yi) {
+    matrixStats::logSumExp(
+      sapply(1:k, function (j) {
+        dpois(yi, theta[j], log = T) + log(tau[j])
+      })
+    )
+  })
+  
+  return (
+    sum(log_liks) + log_prior(y, theta, tau, z, k, alpha, beta, delta)
+  )
+}
 ```
 
 
 ```{r RJMCMC run}
-set.seed(1)
-M = 1e3 # number of iterations
+rjmcmc = function (M, alpha, beta, delta, y, seed = 1) {
+  set.seed(seed)
 
-params = c()
-
-alpha = 10 # priors
-beta = 1
-delta = 1
-
-pars = list(
-  theta = rgamma(1, alpha, beta),
-  tau = 1,
-  k = 1#,
-#  z = rep(1, N)
-)
-z = rep(1, N)
-
-y = data$obs
-
-# runs slowly if the z are saved in the theta
-# already runs kind of slowly
-for (i in 1:M) {
-  pars$tau = update_tau(z, pars$k, delta)
-  pars$theta = update_theta(z, pars$k, y, alpha, beta)
-  z = update_z(y, pars$theta, pars$tau, pars$k)
+  params = c()
   
-  sm = split_merge(y, pars$theta, pars$tau, z, pars$k, 2)
-  pars$theta = sm$theta
-  pars$tau = sm$tau
-  z = sm$z
-  pars$k = length(pars$tau)
+  alpha = 10 # priors
+  beta = 1
+  delta = 1
   
-  bd = birth_death(y, pars$theta, pars$tau, z, pars$k)
-  pars$theta = bd$theta
-  pars$tau = bd$tau
+  pars = list(
+    theta = rgamma(1, alpha, beta),
+    tau = 1,
+    k = 1,
+    lik = NA,
+    complete_lik = NA#,
+    #  z = rep(1, N)
+  )
+  z = rep(1, length(y))
   
-  params[[i]] = pars
+  # runs slowly if the z are saved in the theta
+  # already runs kind of slowly
+  for (i in 1:M) {
+    pars$tau = update_tau(z, pars$k, delta)
+    pars$theta = update_theta(z, pars$k, y, alpha, beta)
+    pars$theta = sort(pars$theta)
+    z = update_z(y, pars$theta, pars$tau, pars$k)
+    
+    sm = split_merge(y, pars$theta, pars$tau, z, pars$k, 2)
+    pars$theta = sm$theta
+    pars$tau = sm$tau
+    z = sm$z
+    pars$k = length(pars$tau)
+    
+    bd = birth_death(y, pars$theta, pars$tau, z, pars$k)
+    pars$theta = bd$theta
+    pars$theta = sort(pars$theta)
+    pars$tau = bd$tau
+    
+    pars$post = log_post(y, pars$theta, pars$tau, z, pars$k, alpha, beta, delta)
+    pars$complete_post = complete_log_post(y, pars$theta, pars$tau, z, pars$k, alpha, beta, delta)
+    
+    params[[i]] = pars
+  }
+  
+  # we don't return the posterior over z, and just one sample, for ease
+  return (list(params = params, allocations = z))
 }
 ```
 
 ```{r analysis}
+params = rjmcmc(1e4, 10, 1, 1, data$obs)$params
 agg_data = data.frame(
   i = 1:M,
+  k = sapply(1:M, function (i) {params[[i]]$k}),
   theta1 = sapply(1:M, function (i) {params[[i]]$theta[1]}),
   theta2 = sapply(1:M, function (i) {params[[i]]$theta[2]}),
   tau1 = sapply(1:M, function (i) {params[[i]]$tau[1]}),
-  tau2 = sapply(1:M, function (i) {params[[i]]$tau[2]})
-) %>%
-  filter(i > 100) # burn-in
+  tau2 = sapply(1:M, function (i) {params[[i]]$tau[2]}),
+  cpost = sapply(1:M, function (i) {params[[i]]$complete_post}),
+  post = sapply(1:M, function (i) {params[[i]]$post})
+) #%>%
+#  filter(i > 100) # burn-in
 
 agg_data %>%
   ggplot(aes(i)) +
   geom_line(aes(y = theta1, color = "theta1")) +
   geom_line(aes(y = theta2, color = "theta2")) +
-  geom_hline(yintercept = c(0.5, 5))
+  geom_hline(yintercept = c(mean(data[data$group==1,]$obs), 
+                            mean(data[data$group==2,]$obs)))
 
 agg_data %>%
   ggplot(aes(i)) +
   geom_line(aes(y = tau1, color = "tau1")) +
   geom_line(aes(y = tau2, color = "tau2")) +
-  geom_hline(yintercept = c(0.3, 0.7))
+  geom_hline(yintercept = c(mean(data$group == 1), mean(data$group == 2)))
+
+agg_data %>%
+  ggplot(aes(i)) +
+  geom_line(aes(y = cpost)) +
+  labs(title = "Complete data log-posterior")
+
+agg_data %>%
+  ggplot(aes(i)) +
+  geom_line(aes(y = post)) +
+  labs(title = "log-posterior")
 ```
 
+```{r}
+params2 = rjmcmc(1e3, 10, 1, 1, alt_data$obs)$params
+agg_data2 = data.frame(
+  i = 1:M,
+  k = sapply(1:M, function (i) {params2[[i]]$k}),
+  theta1 = sapply(1:M, function (i) {params2[[i]]$theta[1]}),
+  theta2 = sapply(1:M, function (i) {params2[[i]]$theta[2]}),
+  tau1 = sapply(1:M, function (i) {params2[[i]]$tau[1]}),
+  tau2 = sapply(1:M, function (i) {params2[[i]]$tau[2]}),
+  cpost = sapply(1:M, function (i) {params2[[i]]$complete_post}),
+  post = sapply(1:M, function (i) {params2[[i]]$post})
+) %>%
+  filter(i > 100) # burn-in
+
+agg_data2 %>%
+  ggplot(aes(i)) +
+  geom_line(aes(y = theta1, color = "theta1")) +
+  geom_line(aes(y = theta2, color = "theta2")) +
+  geom_hline(yintercept = mean(alt_data$obs))
+
+agg_data2 %>%
+  ggplot(aes(i)) +  
+  geom_hline(yintercept = 1) +
+  geom_line(aes(y = tau1, color = "tau1")) +
+  geom_line(aes(y = tau2, color = "tau2"))
+
+agg_data2 %>%
+  ggplot(aes(i)) +
+  geom_line(aes(y = cpost)) +
+  labs(title = "Complete data log-posterior")
+
+agg_data2 %>%
+  ggplot(aes(i)) +
+  geom_line(aes(y = post)) +
+  labs(title = "log-posterior")
+```
+
+```{r}
+mean(z != data$group)
+```
 
 
 

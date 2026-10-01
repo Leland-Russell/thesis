@@ -42,7 +42,7 @@ A single iteration of RJMCMC involves one of each type of move, either (d.i) or 
 
 \subsubsection{Updating weights}
 We update the weights conditional on the oracle assignments $z$ which have a multinomial prior, conjugate to the dirichlet. So, 
-\[ \bm\tau ~|~ \bm{z} = \dir(\delta + \bm{n}) \]
+\[ \bm\tau ~|~ \bm{z} \sim \dir(\delta + \bm{n}) \]
 where 
 \[\bm{n} = \left(|\{i ~|~ z_i = 1\}|, \dots, |\{i ~|~ z_i = k\}|\right) \]
 is a vector indicating the number of observations assigned to each component.
