@@ -1,21 +1,484 @@
- \chapter*{Introduction}
+\documentclass[twoside,12pt,bibstyle=chem-acs]{reedthesis}
+
+\usepackage{style}
+
+\begin{document}
+
+ \chapter{Introduction}
          \addcontentsline{toc}{chapter}{Introduction}
 	\chaptermark{Introduction}
 	\markboth{Introduction}{Introduction}
 	% The three lines above are to make sure that the headers are right, that the intro gets included in the table of contents, and that it doesn't get numbered 1 so that chapter one is 1.
+\label{chap: intro}
 
-% Double spacing: if you want to double space, or one and a half 
-% space, uncomment one of the following lines. You can go back to 
-% single spacing with the \singlespacing command.
-% \onehalfspacing
-% \doublespacing
-	
-	Welcome to the \LaTeX\ thesis template. If you've never used \TeX\ or \LaTeX\ before, you'll have an initial learning period to go through, but the results of a nicely formatted thesis are worth it for more than the aesthetic benefit: markup like \LaTeX\ is more consistent than the output of a word processor, much less prone to corruption or crashing and the resulting file is smaller than a Word file. While you may have never had problems using Word in the past, your thesis is going to be about twice as large and complex as anything you've written before, taxing Word's capabilities. If you're still on the fence about  using \LaTeX, read the Introduction to LaTeX on the CUS site as well as skim the following template and give it a few weeks. Pretty soon all the markup gibberish will become second nature.
+\section{Context}
+Since the birth of statistics as a discipline, the monitoring (or cataloging) of health outcomes, population statistics, and crime have been of great interest \cite{hacking_taming_1990}. As predictive statistical models have been developed, it has been no surprise then that the treatment of these data have evolved from descriptive statistics to using predictive models. In the past 20 years, the field of small area estimation (SAE) has emerged to describe statistical methods applied to contexts in which it is too costly, or indeed impossible, to record a sufficient quantity of data for traditional statistical methods to produce high enough quality estimates for use in decision-making. In the absence of substantial data, SAE employs various methods to ``borrow strength'' from regions with more data, or gain confidence in methods which might otherwise be poorly characterized in contexts will small quantities of data. SAE can be used to describe a variety of fields, including epidemiology \cite{wehrhahn_bayesian_2020}, monitoring health outcomes \cite{cheam_modelbased_2017}, predicting forest health \cite{dettmann_review_2022}, monitoring crime \cite{povala_burglary_2020}, and more. 
 
-\section{Why use it?}
-	
-\LaTeX\ does a great job of formatting tables and paragraphs. Its line-breaking algorithm was the subject of a PhD.\thinspace thesis. It does a fine job of automatically inserting ligatures, and to top it all off it is the only way to typeset good-looking mathematics.
+Despite posing challenges with estimation, the significance of the estimates should not be understated. Monitoring the spread of infectious diseases, for instance, has impacts for pharmaceutical companies developing remedies, hospitals which have to make space for sick patients, policy-makers who distribute funding for public services, and public officials who need to deliver consistent and data-driven messaging. Despite this, especially for new outbreaks of diseases, researchers may not have substantial data to use, causing variance estimates of standard models to be unacceptably large \cite{dorfman_towards_2018}.
 
-\section{Who should use it?}
+A standard SAE model will make use of ``areal units'', partitions of a dataset which are often used as the basis of a mixed-effects model. It may be that data are provided only on the level of such units \cite{hegarty_bayesian_2008}, or it may be that the practitioner chooses an areal unit because they wish to estimate summaries \cite{balocchi_spatial_2019}, or believe that such a unit will provide regions with distinct behavior of the response \cite{balocchi_crime_2023}.
 
-Anyone who needs to use math, tables, a lot of figures, complex cross-references, IPA or who just cares about the final appearance of their document should use \LaTeX. At Reed, math majors are required to use it, most physics majors will want to use it, and many other science majors may want it also.
+Especially in contexts with limited data, Bayesian methods have become nearly ubiquitous in SAE contexts. It allows for both (1) flexible specification of a diverse array of different types of models, (2) often quite simple methods for fitting and estimating from these models, and crucially (3) valid methods for computing variance estimates of point parameter estimates \cite{citation?}. Bayesian methods model parameters as random variables and require the specification of priors. These priors allow for very flexible models, intuitive inference, and the ability to specify ``prior'' belief. While overly disperse priors are not recommended, specifying strong prior belief is often not desired to avoid bias in analyses \cite{gelman_prior_2006}.
+
+Methods by which an analysis can ``borrow strength'' across areal units, often within a mixed-effects regression setting are also quite popular \cite{dorfman_towards_2018}. For the remainder of this thesis unless during the definition of a type of model, or explicitly stated otherwise, it should be assumed that any models being discussed are within the Bayesian paradigm, and any models will have random-effect components. We will introduce Bayesian methods briefly in \autoref{sbsc: bayesian intro}.
+
+Another key model component is the ability to use spatial or spatiotemporal processes to improve accuracy. These can vary widely. For instance \citeauthor{white_hierarchical_2026} use spatial Gaussian processes (GPs) to aid in the estimation of aggregate forest biomass and \citeauthor{vanhatalo_spatiotemporal_2021} use a spatiotemporal GP to induce spatial similarity of group assignments in a mixture model. In some cases, authors have observed oversmoothing from GPs. For instance, \citeauthor{balocchi_crime_2023} observed oversmoothing in an areal analysis and use a conditionally autoregressive (CAR) prior instead. Others have not discussed the degree of smoothing from GPs, but use CAR-type priors regardless \cite{jaya_identifying_2021, more?}.
+
+%Oftentimes in SAE contexts, there is substantial spatial or temporal data which can influence an analysis. Various studies have suggested that incorporating nonparametric spatial or temporal terms into an analysis can improve predictive accuracy \super cite{elliott_spatial_2000,shannon_leveraging_2025}.
+%Furthermore, fitting these models in the Bayesian paradigm allows us to use spatial and temporal processes as terms in regression models with relative ease. 
+
+In limited-data settings, the question of assessing model accuracy or asymptotic properties becomes a difficult question to entertain as well. Although Bayesian methods can provide tools such as posterior predictive checks which allow for checks of model fitness, assessing whether a model has been overfit, has good predictive accuracy, or displays favorable asymptotic properties such as unbiasedness or accurate credible interval coverage becomes increasingly difficult. Many authors use simulation studies \cite{bhattacharyya_bayesian_2026, wehrhahn_bayesian_2020, vanhatalo_spatiotemporal_2021}; these methods are accurate when assessing, say, whether approximate computation is accurate enough. However, \citeauthor{dorfman_towards_2018} warns that a naive simulation study is not useful for assessing model predictive accuracy or benchmarking methods in small-data contexts such as these. Still others assess asymptotic properties such as unbiasedness by comparing predictive models to design-unbiased methods like direct estimators \cite{white_hierarchical_2021,ver_planck_hierarchical_2018}. Though these provide heuristics for such measurements, in cases with small amounts of data, the asymptotic guarantees of direct estimators are not as strong and these are likely not reliable for assessing bias. \textcolor{purple}{I may include more discussion on this after we can fit a model....}
+
+A variety of other models have been suggested to improve accuracy including clustering methods \cite{bhattacharyya_bayesian_2026}, multi-stage models \cite{white_hierarchical_2026, balocchi_crime_2023}, as well as models to predict both point-referenced data and areal aggregates \cite{dettmann_review_2022}. This thesis is concerned with clustering methods for SAE applications. Before reviewing the literature on these methods in \autoref{sec: clustering}, though, we discuss some standard models of counts in \autoref{sbsc: standard SAE}, and provide a motivating example for the relevance of clustering within the context of mixed effects models in \autoref{sbsc: freq example} and \autoref{sbsc: simple clustering}. Then in \autoref{sec: math background} we discuss Bayesian methods for estimating models in the mixture framework, and introduce spatial or temporal processes commonly used in the literature.
+
+\subsection{A standard SAE model for counts}
+\label{sbsc: standard SAE}
+This section may (will) be changed if we aren't modeling counts data.
+Suppose we wish to model the occurrence of a disease. Further, suppose that a disease occurs in the population with probability $p$. If we suppose occurrences are independent, possibly because the disease is not contagious, for instance, then the number of occurrences is a binomial($n,p$) distribution, where $n$ is the size of the population. Oftentimes, it will be easier to use the poisson approximation of the binomial \cite{elliott_spatial_2000}, in which case this will be poisson$(np)$ distributed.
+
+The above setting is not readily applicable to contexts such as epidemiology where we wish to understand the spread of an infectious disease. However, it can form a base to build on. Particularly, we note that if some portion $j$ of the population experiences relatively equal risk of infection, then the observations will be conditionally independent, and we can make the approximation
+\begin{equation*}
+y_{ij} \sim \pois(n_j \cdot p_j)
+\end{equation*}
+Furthermore, we may model the probability of infection within region $j$ with covariates, in a generalized linear model (GLM), in which case the above becomes
+\begin{equation}
+y_{ij} \sim \pois(n_j e^{\rho_{ij}}), \hspace{0.1\linewidth} \rho_{ij} = \bm{x}_{ij}^\top \bm\beta.
+\label{eq: counts}
+\end{equation}
+Here, $e^{\rho_{ij}}$, is analogous to the probability $p_j$ above; for instance, an interpretation is that $e^{\rho_{ij}}$ is the probability (expected by the model) of this individual becoming infected with a disease. More commonly in the literature though, the rate of the poisson is modeled as a product of the expected counts $E_{ij}$, and the relative risk $e^{\eta_{ij}}$ \cite{wehrhahn_bayesian_2020}
+\begin{equation*}
+y_{ij} \sim \pois(E_{ij} e^{\eta_{ij}}), \hspace{0.1\linewidth} \eta_{ij} = \bm{x}_{ij}^\top \bm\beta.
+\end{equation*}
+For some different $\bm\beta$. This is largely the same, except the interpretation of $e^{\eta_{ij}}$ changes so that values about one indicate relatively expected risk, values below one indicate less risk then expected, and values above one indicate a higher-risk population.
+
+A natural extension of the model in \autoref{eq: counts} is to model $\eta_{ij}$ with a mixed-effects model, in which case we have
+\begin{equation*}
+\eta_{ij} = \bm{x}_{ij}^\top \bm\beta + \bm{u}_{ij}^\top \bm\alpha_j,
+\end{equation*}
+where $\bm{u}_{ij}$ is a vector of covariates and $\bm\alpha_j$ are the random effects for areal unit $j$. Further additions have been made to these models in the same way additions may be made to Gaussian models, including the use of spatial and/or temporal information, mixture models, and more. Before moving on though, we will briefly touch on estimation with these models. Given parameters $\hat{\bm\beta}, \hat{\bm\alpha}$, it is standard to use an empirical best linear unbiased predictor (eBLUP) for estimation. There are two which are frequently used in SAE, these being the Battese-Harter-Fuller \cite{battese_error-components_1988} (BHF), and the Fay-Herriot \cite{fay_estimates_1979} (FH). The former involves estimating individual observation (a ``unit-level'' model), and the latter involves estimating areal such as the mean of sum, instead of individual observations (an ``area-level'' model)\footnote{we will not concern ourselves with area-level models in this thesis}. In either case, once a model has been fit, the eBLUP estimate is
+\begin{equation}
+\hat{y}_j^{BLUP} \sim \pois\left(E_{j} \cdot e^{\hat{\eta}_j^{BLUP}}\right), \hspace{0.1\linewidth} 
+\hat\eta_j^{BLUP} = \bar{\bm{x}}_{j}^\top \hat{\bm\beta} + \bar{\bm{u}}_{j}^\top \hat{\bm\alpha}_j,
+\end{equation}
+where $\bar{\bm{x}}_{j}$ and $\bar{\bm{u}}_{j}$ are the average of covariate values among all individuals in a population (as opposed to individuals within a sample). We note that another sensible way to define $\hat{\eta}_j^{BLUP}$ is
+\addtocounter{equation}{-1}
+\begin{equation}
+\hat{\eta}_j^{BLUP} = \frac{1}{N_j} \sum_{i=1}^{N_j} \bm{x}_{ij}^\top \hat{\bm\beta} + \bm{u}_{ij}^\top \hat{\bm{\alpha}}_j,
+\end{equation}
+where $N_j$ is the size of the population in area $j$. Since we have a linear model, these are exactly equal. In particular, we know that
+\begin{equation*}
+\frac{1}{N_j} \sum_{i=1}^{N_j} \bm{x}_{ij}^\top \hat{\bm\beta} + \bm{u}_{ij}^\top \hat{\bm{\alpha}}_j = \frac{1}{N_j}\left(\left(\sum_{i=1}^{N_j} \bm{x}_{ij}^\top\right) \hat{\bm\beta} + \left(\sum_{i=1}^{N_j} \bm{u}_{ij}^\top\right) \hat{\bm\alpha}_j\right) = \bar{\bm{x}}_{j}^\top \hat{\bm\beta} + \bar{\bm{u}}_{j}^\top \hat{\bm\alpha}_j.
+\end{equation*}
+So either form may be used. Although, with the incorporation of spatial effects, the latter may introduce substantial computational cost. I do not know...
+
+
+
+
+
+\subsection{A motivating (frequentist) example}
+\label{sbsc: freq example}
+Here we consider a simple example in the form of a standard random-intercepts mixed effects model. 
+Suppose we have some response $y_{ij}$, of individual $i$ in an areal unit $j$ modeled with covariates $\bm{x}_{ij}$ as
+\begin{equation}
+y_{ij} = \bm{x}_{ij}^\top \bm\beta + \alpha_j + \epsilon_{ij}, \hspace{0.05\linewidth} \hat{y}_{ij} = \bm{x}_{ij}^\top \hat{\bm\beta} + \hat\alpha_j, \hspace{0.05\linewidth} \hat{\mu}_j = \frac{1}{n_j}\sum_{i=1}^{n_j} \hat{y}_{ij}%\hspace{0.05\linewidth} \hat{y}_{ij} = \bm{x}_{ij}^\top \bm\beta + \alpha_j
+\label{eq: simple lme},
+\end{equation}
+where $\epsilon_{ij} \sim N(0,\sigma^2)$ is the residual of the model and $\hat\mu_j$ is the estimated mean of the response in group $j$. Moreover, it is often assumed that the random effect $\alpha_j$ is normal:
+\begin{equation}
+\alpha_j \overset{\iid}{\sim} N(0,\sigma_\alpha^2)
+\label{eq: standard RI}
+\end{equation}
+for some variance $\sigma_\alpha^2$.
+If the areal units are highly heterogeneous, covariates may not accurately capture the variability of the response within the units. Then the residuals within some group %$j$, $(y_{ij} - \hat{y}_{ij})_{i=1}^{n_j}$
+will be large, and the error of the estimates $\hat{\mu}_j$ will be large.
+
+Conversely, suppose the areal units are unnecessarily small, and there are multiple units which behave similarly. In this case, each group's random effect $ \alpha_j$ will be estimated independently of the others, and hence each will have a higher variance, thus inflating the variance in any estimate from the model. 
+
+Although there are no closed form solutions for the variance of the random effects, we may analyze the ordinary least squares (OLS) estimators in the frequentist context to gain an understanding of the effect of mis-specification in both cases. Particularly, suppose that we impose the linear model
+\begin{equation*}
+\hat{\bm{y}_i} = \bm{X}^\top\hat{\bm\beta}%\tag{$i = 1, \dots, n$}
+\end{equation*}
+where $\bm{X}$ is the design matrix. The variance of the regression coefficients are
+ \cite{keener_theoretical_2010}
+\begin{equation*}
+\var(\hat{\bm\beta}) = \sigma^2(\bm{X}^\top \bm{X})^{-1}. %,
+%\hspace{0.05\linewidth}  \widehat{\var(\hat{\bm\beta})} = \hat{\sigma}^2 (\bm{X}^\top\bm{X})^{-1},
+%\hspace{0.05\linewidth} \hat{\sigma}^2  = \frac{1}{n-p}\sum_{i=1}^n (y_i - \hat{y}_i)^2.
+\end{equation*}
+If the areal units are highly heterogeneous and covariates do not capture the trend of the response well, then the residuals of the model will be high, raising ${\sigma}^2$, the variance of the residuals.
+
+Conversely, suppose there is some set $J$ of areal units with identical behavior of the response. 
+If each of the $|J|$ units are given individual regression coefficients the variance of each regression coefficient will be proportional to $\var(\hat{\beta}_{j}) \propto n_j^{-1}$ for $j \in J$. Conversely, if each all $|J|$ regression coefficients are collectively assigned one regression coefficient $\beta_{j^*}$, although the variance of the residuals ${\sigma}^2$ may be mostly unchanged%\footnote{The denominator of the estimate for $\sigma^2$ will be reduced by $|J|-1$ since we remove this many columns in the design matrix, technically reducing the variance estimate, but this is minor in most cases.}
+, the variance of $\hat{\beta}_{j^*}$ will be
+\begin{equation*}
+\var(\hat{\beta}_{j^*}) \propto \left(\sum_{j \in J}n_j\right)^{-1} \propto \left(\sum_{j \in J}\var(\hat{\beta}_j)^{-1}\right)^{-1}.
+\end{equation*}
+While shrinkage in the values of the random effects does lessen the effect of mis-specification in this case, the effect remains and the variance estimates will be inflated. 
+The use of areal units which represent distinct behaviors of the response is therefore important for the creation of predictive regression models. 
+
+The first case may not always be avoidable---indeed, values of the response may be aggregated across regions when distributed to ensure, say, confidentiality of the subjects. When there is a sufficiently fine areal unit, it may hopefully be avoided.
+The second case may be avoidable given a method to cluster similar areal units into one group for the regression model.
+The problem of choosing similar areal units, under this framing, naturally leads to the problem of clustering wherein we attempt to select (in some unsupervised fashion) partitions of the data into some $G$ groups where observations in each group behaves differently from observations in the others, but similarly to those within the same.
+
+\subsection{A Clustering Method}
+\label{sbsc: simple clustering}
+For a mixed-effects model like in \autoref{eq: simple lme}, a simple solution to the above issue could be to estimate a mixture model over the random effects. In this context, rather than imposing the assumption that the random effects are independently normal as in \autoref{eq: standard RI}, we suppose that each areal unit belongs to one of $G$ groups, and the random effect for each group is independently normal, that is
+\begin{equation}
+\alpha_j ~|~ g_i = \alpha_{g_i} \sim N(0, \sigma^2_\alpha) %\sum_{k=1}^K \pi_k N(\mu_\alpha, \sigma_\alpha^2).
+\end{equation}
+or given an unknown group assignment of a cluster,
+\addtocounter{equation}{-1}
+\begin{equation}
+y_{ij} \sim \sum_{g=1}^G \mix_k N(\bm{x}_{ij}^\top \bm\beta + \alpha_g, \sigma^2).
+\label{eq: lm-mm}
+\end{equation}
+Where $\bm\tau$ are non-negative weights summing to unity---herein referred to as mixture weights. And indeed, methods like this have been proposed and implemented within the literature \cite{proust_estimation_2005,verbeke_linear_1996}. The mixture model is used purely to improve model fitness, but oftentimes, the interpretations of groups belonging to mixtures has great meaning as well. Indeed, each group has a particular random-effect, and hence interpretations of the random-effects relative to each other allows for meaningful inference on the groups.
+
+\section{Clustering methods for SAE}
+\label{sec: clustering}
+%Clustering methods in SAE contexts often are employ either: 
+There are many clustering methods which have been used for clustering in the spatial context. \citeauthor{kulldorff_satscan_1997} developed software estimating clustering methods via scan statistics. These methods have been widely adopted, but draw criticism with respect to the unreasonable assumptions they may impose \cite{wakefield_bayesian_2013}. Other authors have proposed ``gap statistics'' \cite{tibshirani_estimating_2001}. These methods can be frequentist, but most methods proposed to SAE specifically have been Bayesian. 
+
+Bayesian clustering methods for SAE typically involve either
+(1) using priors which induce spatially contiguous regions to partition a dataset, unions thereof, or similar models \cite{knorrheld_bayesian_2000, hegarty_bayesian_2008, bhattacharyya_bayesian_2026}, or (2) Mixture models with spatially correlated group assignments \cite{povala_burglary_2020, fernandez_modelling_2002}. The former is nearly always estimated at the areal level, and the latter is often estimated with point-referenced data. We give more focus to the latter as the proposed method here builds from the methodology, but discuss the former to provide context.
+
+\subsection{Contiguous Clustering Methods}
+Suppose we have some $J$ areal units $\mathcal{A} = \{a_1, \dots, a_J\}$. Because these are discrete units, they can be represented as a graph with edges indicating adjacencies. The problem of forming contiguous clusters is to find a partition $\mathcal{C} = \{C_1, \dots, C_G\}$ of $\mathcal{A}$ such that if $a_i, a_k \in C_g$, then there is a walk from $a_\ell$ to $a_k$ in the graph such that every intermediate vertex $a_\ell$ is also in $C_g$ \cite{knorrheld_bayesian_2000, come_bayesian_2024}. 
+Some authors have observed that working with contiguous clusters is too restrictive, and have suggested the use of priors inducing unions of contiguous clusters \cite{bhattacharyya_bayesian_2026}. \citeauthor{hegarty_bayesian_2008} approached this question with the use of product partition models which need not necessarily be contiguous, but induce a similar structure. \citeauthor{wehrhahn_bayesian_2020} use a restricted restaurant process in a mixture model like model to induce contiguous clusters. 
+We will refer to these methods as near-contiguous clustering.
+
+Generally, a near-contiguous clustering method must then begin with a choice of areal unit, and create groupings wherein different areal units are expected to behave similarly. Of course, if an areal unit is heterogeneous, this method may not perform well, but otherwise these models allow for desirable inference where each group represents different population or neighborhood (depending on the application), and these populations may be monitored through the behavior of group-specific terms in models \cite{balocchi_crime_2023}.
+
+The priors over partitions are complex and when authors use MCMC for estimation, they typically employ blocked split-and-merge type samplers of partitions in conjunction with standard updates for other model parameters \cite{bhattacharyya_bayesian_2026,hegarty_bayesian_2008}. We will discuss methods for Bayesian model estimation later.
+
+
+\subsection{Mixture Models}
+A standard $G$-component mixture model takes the form
+\begin{equation}
+y_i ~|~ \bm{x}_i, \bm\Theta, \bm\mix, G \sim \sum_{g=1}^G \mix_g f(y_i; \bm{x}_i, \bm\Theta_g).
+\label{eq: simple mixture}
+\end{equation}
+Here $\bm\Theta_g$ are group-specific parameters and $f$ is a data-model. For instance, if $\bm\Theta_g = (\bm\beta, \alpha_g)$, and $f(y_i; \bm\Theta_g) = \bm{x}_i^\top \bm\beta + \alpha_g$, then the above mixture model gains the same form as \autoref{eq: lm-mm}. The interpretation of a mixture model is often aided by a group identifier $z_i$ which gives the group of observation $y_i$. Then, the (prior) probability that an observation $y_i$ is in group $g$ is $P(z_i = g) = \mix_g$. Given group identifiers, \autoref{eq: simple mixture} may be rewritten as
+\begin{equation*}
+y_i ~|~ \bm\Theta, z_i \sim f(y_i; \bm\Theta_{z_i}).
+\end{equation*}
+Within the spatial modeling context, a spatial prior may be placed on the mixture weights so as to induce smoothness of the group allocations, and the mixture weights $\bm\mix$. For instance, \citeauthor{vanhatalo_spatiotemporal_2021} used the model
+\begin{equation*}
+y_i ~|~ \bm\Theta, \bm\mix_i, G \sim \sum_{g=1}^G \mix_{ig} f(y_i; \bm\Theta_g),
+\end{equation*}
+where $\tau_{ig}$ is a softmax of logits, and the logits are generated by a spatiotemporal GP, similar to
+\begin{equation}
+\mix_{ig} = \frac{\phi_{ig}}{\sum_{g=1}^G \phi_{ig}}, \hspace{0.2\linewidth} \log\phi_{ig} \sim GP.
+\end{equation}
+We will discuss the details of gaussian processes shortly.
+Other authors \cite{cheam_modelbased_2017,povala_burglary_2020,fernandez_modelling_2002} have used similar models. There are many benifits to this approach. For instance, it builds on an already well understood type of model, and allows for flexible modeling within SAE contexts. Furthermore, any modifications to mixture models are compatible with this model provided they do not modify the behavior of group allocations. Therefore these can readily use different data models or treatment of covariates, and sampling for such models can be easily transferred.
+
+In general, mixture models oftentimes allow for simpler computation as well. Whereas near-contiguous methods often resort to split/merge algorithms to sample clusters given $G$, standard estimation techniques work readily for a simple mixture model. For instance, \citeauthor{gardini_mixture--experts_2025} fit a model like \autoref{eq: simple mixture} in \texttt{stan} \cite{guo_rstan_2015} where $G = 2$. There are types of mixture models, for instance when one wishes to estimate $G$, where computation becomes more difficult though.
+
+%The inclusion of spatial processes in mixture models is not uncommon, and has already been discussed. Model estimation may become more complex, either through approximations of the posterior \cite{vanhatalo_spatiotemporal_2021}, or approximations of GPs \cite{datta_hierarchical_2016}.
+
+Unlike near-contiguous clustering methods, mixture models can be used with both point-referenced and areal data. Although there is not much work using mixture models for areal analyses, it can be done\footnote{look into ``no-one else doing this''}. The development of these methods is therefore widely applicable to contexts where point-reference data or areal data are provided. Likewise, any spatial prior may be used for the mixture weights in principle. Again, there is not much work using priors other than GPs, but some authors \cite{balocchi_crime_2023} have noted that GPs may sometimes induce too much smoothness in an areal context, so the use of CARs, or similar graph-based methods may be a reasonable alternative for areal data.
+
+%In this thesis, I propose mixture-based clustering methods areal data in an epidemiological context. I don't really know what I'm going to do yet, so this section can't really be complete. One thing that could be cool is to use both CAR and GP priors as a prior on the mixture allocations for a thorough comparison of the two. The remainder of this section will discuss the proposed work and outcomes.
+
+\section{Mathematical background}
+\label{sec: math background}
+\textcolor{purple}{Introduction to this section goes here... this goes in methods maybe}
+
+\subsection{Bayesian Methods}
+\label{sbsc: bayesian intro}
+
+In the Bayesian paradigm, all parameters are treated as unknown, representing our understanding of their behavior. Accordingly, a degree of belief in their behavior must be specified. This is called the prior. The result of a model, the posterior, represents an updated belief after observing data. Specifically, take the (frequentist) problem of estimating the mean of a distribution:
+\begin{equation*}
+y_i \overset{iid}\sim N(\mu, \sigma^2) \tag{$i = 1, \dots, n$}
+\end{equation*}
+where $\sigma^2$ is known. Maximum likelihood estimates yield
+\begin{equation*}
+\hat\mu^{MLE} = \underset{\mu}{\mathrm{argmax}} \sum_{i=1}^n f(y_i; \mu) = \bar{y}, \hspace{0.2\linewidth} \hat\mu^{MLE} \sim N\left(\mu, \frac{\sigma^2}{n}\right)
+\end{equation*}
+The latter result about the distribution of $\hat\mu^{MLE}$ is importantly the sampling distribution of $\hat\mu^{MLE}$. Frequentist methods assign equal weight to each simple hypothesis for $\mu$. That is, there is no shrinkage and the hypotheses (for example)
+\begin{equation*}
+H_0: \mu = 0 \hspace{0.2\linewidth} H_1: \mu = 10^{10}
+\end{equation*}
+have equal weight. While this is an appealing property, in most cases it is very unrealistic. Moreover, having unconstrained assumptions on parameters can harm inference \cite{strawderman_charles_2021} and the cause more cumbersome inference on parameters.
+
+In the Bayesian setting, priors typically represent meaningful information about a parameter. Priors can be specified to replicate the result of frequentist analyses, like flat priors $f(\mu) \propto 1$ on an improper domain. However a proper Bayesian model typically assigns other priors. These induce shrinkage on the parameter and provide more interesting inference through posteriors. A typical prior on a centrality/mean parameter such as $\mu$ is a normal distribution. In this case, we have fully specified model, which we can write as:
+\begin{align*}
+y_i \overset{iid}\sim N(\mu, \sigma^2) \\
+\mu \sim N(\mu_0, \sigma_0^2)
+\end{align*}
+Furthermore, in this case, we have a conjugate family, and we know that the posterior distribution is a normal distribution with a known fixed mean and variance.
+
+
+Oftentimes however, there is no closed-form posterior and a Bayesian model must be estimated via MCMC, numerical integration, or approximated through variational methods\cite{gelman_bayesian_2014}. MCMC methods are preferred in this thesis both because it allows a relatively simple estimation procedure, and allows simple ways to quantify variance in complex models.
+
+The Metropolis Hastings (MH) algorithm for Bayesian model estimation is in \hyperref[alg: MH]{Algorithm }\autoref{alg: MH}. Here, $q$ denotes a proposal distribution for parameters with $q(\perp)$ indicating an initial value and density $f_q$, $M$ indicates the number of iterations, and $\mathcal{L}(\bm{y}; \bm\theta)$ indicates a likelihood. In cases where covariates are used, the likelihood changes slightly but the algorithm remains the same otherwise. If $q$ is a symmetric distribution, then the form of $A$ simplifies to
+\begin{equation*}
+A \gets \frac{\mathcal{L}(\bm{y}; \bm\theta)}{\mathcal{L}(\bm{y}; \bm\theta^{(i-1)})}.
+\end{equation*}
+Finally, depending on the initial $\bm\theta^{(0)}$, a ``burn-in'' period is typically required for the chain to reach an approximate posterior. 
+
+
+\begin{algorithm}
+\begin{algorithmic}
+\State $\bm\theta^{(0)} \gets q(\perp)$
+\For{$i$ in $1,..., M$}
+	\State $\bm\theta \gets q(\bm\theta^{(i-1)})$
+	\State $A \gets \frac{\mathcal{L}(\bm{y}; \bm\theta)}{\mathcal{L}(\bm{y}; \bm\theta^{(i-1)})}\left(\frac{f_q(\bm\theta; \bm\theta^{(i-1)})}{f_q(\bm\theta^{(i-1)}; \bm\theta)}\right)^{-1}$
+	\State $\alpha \gets \unif(0,1)$
+	\If{$\alpha \le \min(A,1)$}
+		\State $\bm\theta^{(i)} \gets \bm\theta$
+	\Else
+		\State $\bm\theta^{(i)} \gets \bm\theta^{(i-1)}$
+	\EndIf
+\EndFor
+\end{algorithmic}
+%\addtocounter{algorithm}{-1}
+\caption{The MH algorithm for model estimation}
+\label{alg: MH}
+\end{algorithm}
+
+While the MH algorithm is often easy to implement, its convergence may be slow. In particular, if there are many parameters in a model, then proposals of all parameters at once may have a poor acceptance ratio, and convergence may be poor or take substantially longer. Gibbs samplers provide a more appealing sampler, but require conditional distributions. Given some $\bm\theta = (\theta_1, \dots, \theta_p)$, if we know that
+\begin{align*}
+\theta_1 ~|~ \bm\theta_{-1} &\sim f(\bm\theta_{-1}) \\
+&\ \ \vdots \\
+\theta_p ~|~ \bm\theta_{-p} &\sim f(\bm\theta_{-p})
+\end{align*}
+Then the gibbs sampler, in \hyperref[alg: gibbs]{Algorithm }\autoref{alg: gibbs}, provides an appealing alternative which often converges faster \cite{cite_something}.
+
+\begin{algorithm}
+\begin{algorithmic}
+\State $\bm\theta^{(0)} \gets q(\perp)$
+\For{$i$ in $1,\dots, M$}
+	\For{$j$ in $1, \dots, p$}
+		\State $\bm\theta^{(i)}_j \gets f(\bm\theta^{(i-1)}_{-j})$
+	\EndFor
+\EndFor
+\end{algorithmic}
+%\addtocounter{algorithm}{-1}
+\caption{The Gibbs algorithm for model estimation}
+\label{alg: gibbs}
+\end{algorithm}
+
+Finally, another option for improving samplers is to break up a sampler into different stages. For example, there could be one MH-proposal per parameter, with associated acceptance instead of one MH-proposal for all parameters at once. Alternatively, some parameter may be updated via MH proposals, and others via gibbs-type updates.
+
+\subsection{Reversible-Jump MCMC} %and inferring the number of clusters}
+\label{sbsc: rjmcmc}
+
+We illustrate the need for and details of implementation of the Reversible-Jump MCMC algorithm through an example of a mixture of poisons.
+\subsubsection{Example: Mixture of Poisson Distributiosn}
+
+Suppose we have the mixture model
+\begin{alignat*}{2}
+y_i &~|~ z_i, \theta_{z_i} 	&&\sim \pois(\theta_{z_i}) \\
+z_i &~|~ \bm\mix		&&\sim \mult(\bm\mix) \\
+\bm\mix &~|~ G			&&\sim \dir(\bm\delta_G) \\
+G& 					&&\sim \unif(G_{max}) \\
+\theta_g&				&&\sim\gam(\alpha, \beta) \tag{$g = 1, \dots, G$}
+\end{alignat*}
+where $G_{max}$ is some fixed integer, $\delta, \alpha, \beta > 0$ real numbers for priors.
+We consider a method for estimating such a model. One proposed method could be to work with a full parameter vector for $\bm\theta$ and $\bm\mix$
+\begin{equation*}
+\bm\theta = (\theta_1, \dots, \theta_{G_{max}}), \hspace{0.1\linewidth} \bm\mix = (\tau_1, \dots, \tau_{G_{max}}).
+\end{equation*}
+Then only the first $G$ are used, and the mixture weights are normalized. The issue is that in transitions from different values of $G$, either mixture components may be lost and the resulting model may model data very poorly, or one may be gained in a poor location. In either case, another burn-in period may be required after each change in $G$. Moving forward, although it is not necessary for the above, it will be useful to impose the identifiability condition that the $\bm\theta$ are increasing, meaning
+\begin{equation*}
+\theta_1 < \dots, \theta_G
+\end{equation*}
+This means that $f(\bm\theta) = n! \prod_{\theta \in \bm\theta} f(\theta)$.
+
+The underlying issue with this method for estimation is that parameters change dimension with $G$. $\bm\theta$ and $\bm\mix$ are both of dimension $G$, so when $G$ changes, it is not always clear how they should behave. It is for this reason that \citeauthor{green_reversible_1995} proposed Reversible-Jump MCMC (RJMCMC), to allow for ``reversible jumps'' between dimensions. Later \citeauthor{richardson_bayesian_1997} provided a variant of RJMCMC for finite mixtures. They use a conventional MCMC for model parameters, and then have two reversible jump moves. Within the context of the above model, these moves are described as:
+\begin{enumerate}
+\itemsep-0.375em
+\item[(a)] Updating the weights $\bm\mix$
+\item[(b)] Updating parameters $\bm\theta$
+\item[(c)] Updating allocations $\bm{z}$
+\item[(d.i)] Combining two mixtures into one
+\item[(d.ii)] Splitting one mixture into two
+\item[(e.i)] The death of an empty component
+\item[(e.ii)] The birth an empty component
+\end{enumerate}
+
+Steps (a) and (b) can be implemented via gibbs moves using the dirichlet-multinomial conjugacy, resulting in the updates
+\begin{equation*}
+\bm\mix ~|~ \bm{z}, G \sim \dir(\delta + \bm{n}), \hspace{0.1\linewidth} \bm{n} = (|\{i ~|~ z_i = 1\}|, \dots, |\{i ~|~ z_i = G\}|) 
+\end{equation*}
+\begin{equation*}
+\theta_j ~|~ \bm{z}, \bm{y} \sim \gam\left(\alpha + \sum_{i : z_i = j}y_i, \beta + n_j\right) \tag{$j = 1, \dots, G$}
+\end{equation*}
+Furthermore (c) can be implemented as a gibbs-type move by sampling from a distribution whose density is proportional to mixture-component likelihoods weighted by mixture weights:
+\begin{equation*}
+f(z_i = j ~|~ y_i, \bm\theta, \bm\mix) \propto \tau_j f(y_i ~|~ \theta_j).
+\end{equation*}
+
+The updates for (d) and (e) are not straightforward though, and use reversible-jump moves. To formalize RJMCMC, we suppose we have a countable number of models $\{\mathcal{M}_1, \mathcal{M}_2, \dots \}$. In the example we may define $\mathcal{M}_g$ to be a $g$-component mixture model. When $G$ is treated as unknown, we hope to obtain a posterior of both $G ~|~ \bm{y}$, and the parameters of $\{\mathcal{M}_g\}_{g \in \supp(G ~|~ \bm{y})}$.
+
+To facilitate jumps between dimensions, both a proposal distribution for the parameter indexing models must be defined, as well as an invertible map which can map parameters in one dimensional model to any proposed dimensional model. With the parameter updates as proposed above, the proposal distribution changes the dimension of the parameters by at most one every move. After specifying these proposals, reversible jump moves $R$ must be proposed. In order for $R$ to be invertible, the dimension of its domain and codomain must be equal. Although, in general the dimensions will change. For instance, where superscripts denote the number of elements, the dimension of 
+\begin{equation*}
+\supp(\bm\mix^g) \times \supp(\bm\theta^g) = 2g-1
+\end{equation*}
+So, changing $g$ changes the dimension. In order to make $R$ invertible, then, extra ``noise'' parameters are inserted. So, for a case where $g$ is decreased by one, we may define\footnote{although the simplex $\supp(\bm\tau^d) = \Delta_{d-1}$ has dimension $d-1$, we write it as a point in $[0,1]^d$}
+\begin{equation*}
+R: [0,1]^{d} \times \R^d \to [0,1]^{d-1} \times \R^{d-1} \times ([0,1]^2)
+\end{equation*}
+where $[0,1]^2$ are to be sampled as noise parameters.
+
+
+There are two types of moves for (d), but these are essentially inverses up to the interpretation of values. We start with (d.i), splitting a mixture into two. For this, a random two adjacent mixture components of the $G$ is sampled. Say $g_1, g_2$. Then $g_1$ and $g_2$ are combined into some $g$. A move similar to that proposed by \citeauthor{richardson_bayesian_1997} is to define %The move $R$ corresponding to this is the identity on all other parameters, and maps
+\begin{equation*}
+\theta_g = \mix_{g_1}\theta_{g_1} + \mix_{g_2}\theta_{g_2}, \hspace{0.1\linewidth} \mix_g = \mix_{g_1} + \mix_{g_2}
+\end{equation*}
+So the $g$-th component has expectation equal to the sum of the two component expectations, and likewise weight equal to the sum of the two component weights. A way to define this move so it is invertible is to map parameters of every component that isn't $g_1$ or $g_2$ to themselves, and then say that
+\begin{equation*}
+(\theta_{g_1}, \theta_{g_2}, \mix_{g_1}, \mix_{g_2}) \mapsto \left(\mix_{g_1}\theta_{g_1} + \mix_{g_2}\theta_{g_2}, \mix_{g_1} + \mix_{g_2}, w_1, w_2 \right),
+\end{equation*}
+where
+\begin{equation*}
+w_1 = \frac{\mix_{g_1}}{\mix_{g_1} + \mix_{g_2}}, \hspace{0.1\linewidth} w_2 = \frac{\mix_{g_1}\theta_{g_1}}{\mix_{g_1}\theta_{g_1} + \mix_{g_2} \theta_{g_2}}.
+\end{equation*}
+
+So the $w_1$ acts as a proportion, indicating approximately how much of the $g$-th component's weight is split into component $g_1$ versus $g_2$. If $w_1$ is close to one, then the weight of $g_1$ will be similar to the weight of $g$. Meanwhile $w_2$ indicates approximately how much of the expectation of the $g$-th component is split into component $g_1$ versus $g_2$. These interpretations allow us to define the invertible move
+\begin{equation*}
+J : [0,1]^{d-1} \R^{d-1} \times [0,1]^2 \to [0,1]^{d} \times \R^d ,
+\end{equation*}
+which again does not modify parameters not associated with component $g$, and for these two parameters, and with the associated $w_1, w_2$, it maps
+
+\begin{equation*}
+J:  (\theta_g, \bm\tau_g, w_1, w_2) \mapsto \left(\frac{\theta_gw_2}{\tau_gw_1}, \frac{\theta_g(1-w_2)}{\tau_g(1-w_1)}, \tau_gw_1, \tau_g(1-w_1)\right).
+\end{equation*}
+And this $J$ is defined so that any composition of $R$ and $J$ is the identity on a $(2d-1)$-dimensional space:
+\begin{equation*}
+RJ = \id_{2d}, \hspace{0.05\linewidth} JR = \id_{2d}
+\end{equation*}
+
+We note that in (d.i), there is no risk of violating identifiability, as the new component is a convex weight of the two adjacent components, each of which are consistent with the identifiability condition. However, in (d.ii), depending on the value of $w_1$ and $w_2$, it may be that one of the mixture component has a parameter $\theta$ which is larger than a later mixture component, or smaller than an earlier. In this case, we reject the proposal immediately.
+
+We also note that in (d.i), the computation is relatively simple as the value of $w_1$ and $w_2$ do not matter, but in (d.ii) we must create values for use here. These are generated randomly from the unit interval. \citeauthor{richardson_bayesian_1997} propose that they are each generated from a Beta(2,2) distribution. This is likely because this encourages some centrality in $w_1$ and $w_2$, thereby making the two resulting components relatively close to the previous component on average, while still allowing for meaningful differences. In an extreme case, if they were sampled from a $\Beta(0,0)$ distribution, then most proposals would violate the identifiability condition and be rejected, and so this proposal can affect the mixing substantially. After either moves of the type of (d), all other parameters are updated.
+
+The proposals for (e) are defined analogously so that (e.i) chooses a random empty component $g$ and deletes it:
+\begin{equation*}
+R^{(e)}: (\bm\theta, \bm\mix) \mapsto \left(\bm\theta_{-g}, \frac{\bm\mix_{-g}}{\sum_{j\neq g}\mix_j}, \theta_g, \mix_g\right)
+\end{equation*}
+and the inverse move
+\begin{equation*}
+J^{(e)}: (\bm\theta, \bm\mix, w_1, w_2) \mapsto \left((\bm\theta, w_1), \left(\frac{\bm\mix}{1-w_2}, w_2\right)\right)
+\end{equation*}
+where $w_1 \sim \gam(\alpha, \beta)$, the prior on $\theta$, and $w_2 \sim \Beta(1,G)$. We have placed $w_1, w_2$ at the end of the parameter vector, but implicitly they will be placed in the appropriate spot so the identifiability is satisfied.
+
+RJMCMC is an MH-like algorithm, so these proposals are either accepted or rejected. But instead of the acceptance probability is modified by the addition of the jacobian of the move proposed to compute $A$:
+\begin{equation*}
+A \gets \frac{\mathcal{L}(\bm\varphi ~|~ \bm{y})}{\mathcal{L}(\bm\varphi^{(i-1)} ~|~ \bm{y})} \cdot \frac{f(\bm\varphi)}{f(\bm\varphi^{(i-1)})} \cdot \frac{q(\bm\varphi^{(i-1)} ~|~ \bm\varphi)}{q(\bm\varphi ~|~ \bm\varphi^{(i-1)})} \cdot \left| \frac{\partial (\bm\varphi)}{\partial (\bm\varphi^{(i-1)})} \right|
+\end{equation*}
+where $\bm\varphi = (\bm\theta, \bm\mix, G, \bm{w})$, where $\bm{w}$ is only included if the dimension of the parameter space reduced. For example, the move for (d.i) has $A$ equal to
+\begin{equation*}
+A^{(d.i)} = \frac{\mathcal{L}(\bm\theta, \bm\mix ~|~ \bm{y})}{\mathcal{L}(\bm\theta^{(i-1)}, \bm\mix^{(i-1)} ~|~ \bm{y})} \times \frac{f(G-1) f(\bm\tau) (G-1)!\prod_{j=1}^{G-1} f(\theta_j)}{f(G) f(\bm\tau) G!\prod_{j=1}^{G}f(\theta_j^{(i-1)})}  \times \cdots
+\end{equation*}
+\begin{equation*}
+\cdots \times \frac{f(w_1) f(w_2)p_{split} \cdot (G-1)}{p_{merge} \cdot (G-1)} \times \left| \frac{\partial (\bm\theta, \bm\mix, w_1, w_2)}{\partial (\bm\theta^{(i-1)}, \bm\mix^{(i-1)})} \right|.
+\end{equation*}
+The first two terms are the likelihood and priors, where the factorials in $G$ come from marginalizing the joint distribution on the order statistics $\bm\theta$. The third term includes the density of the weights as these are part of the proposal distribution, as well as the probability of splitting, the probability of merging, and a factor of $G-1$ indicating the number of possible choices we could have made in splitting. The Jacobian may be computed, but may also be computed at runtime numerically, so we do not compute it here.
+
+
+
+\subsubsection{Other methods for dimension-changing procedures}
+Reversible jump is a popular way to estimate models which may span multiple dimensions, and in particular mixture models with an unknown $G$. There are other methods that have been proposed though. \citeauthor{stephens_bayesian_2000}, for example, proposed. an alternative to the method above which removes the need for both (1), the constraint that $\theta_1 < \dots, \theta_G$, and (2) the computation of the jacobian. Furthermore, it removes the need for proposals as needed by MH algorithms, and instead computes a number of moves after which such a move will be effected. This can substantially improve the mixing of the algorithm in cases where the posterior is especially complex with respect to the parameter $G$. \textcolor{purple}{maybe we could use this... I'm not sure yet because I have to start using data and see how this would work}.
+
+Other authors have proposed Dirichlet Processes (DP), or ``restaurant-processes'' (RP) for finite mixtures \cite{gelman_bayesian_2014, rodriguez_nested_2008, wehrhahn_bayesian_2020}. This does not necessarily need a split-and-merge algorithm to determine the number of clusters and instead uses a construction of the DP to implement simple samplers. \textcolor{purple}{I might talk more about DPs here, I'm unsure how exactly they will figure into this thesis}. 
+
+A special case of the DP is the RP, a metaphor wherein ``customer'' (observations) are assigned to ``table'' (clusters) within a restaurant, and each table has a ``dish'' (specific $\theta_g$) which all customers must eat. In the literature, this is often called a ``Chinese Restaurant Process'', but if we refer to this, we will call it a RP. Again, these can often be implemented with some simplicity, but the number of groups in a model is proportional to $\log n$, the number of observations \cite{gelman_bayesian_2014}. In large datasets, this may be unfavorable as it may be preferable to have a more parsimonious cluster allocation. Some authors have proposed variants of clustering whereby multiple mixture components may be assigned to one group, often using some optimization to choose the allocations of clusters to groups \cite{ng_model-based_2021, baudry_combining_2010}. We will consider these methods here as we are concerned with mixtures representing distinct behavior with respect to a response and possibly covariates for the purpose of improving model fitness.
+
+\subsection{Common Spatial Processes}
+\label{sbsc: spatiotemporal intro}
+
+\subsubsection{Gaussian Processes}
+A Gaussian Process (GP) is a distribution over random functions, like the DP. It is therefore a very flexible distribution, and when used as a prior, it allows a great deal of flexibility in adapting to data. Let $k$ be a covariance function between two $m$-dimensional vectors. Likewise let $m$ be a mean function. Then,
+\begin{equation*}
+\mu \sim GP(m,k) \hspace{0.025\linewidth}\text{when}\hspace{0.025\linewidth} \mu(\bm{X}) \sim N(m(\bm{X}), K(\bm{X})) \hspace{0.025\linewidth} \text{for any } \bm{X} = (\bm{x_1}, \dots, \bm{x_n}) \in (\R^{n})^m
+\end{equation*}
+Here, $m(\bm{X})$ is $m$ is $m(\bm{x}_1, \dots, \bm{x}_n)$ to $\bm{x}$, and $K(\bm{x})$ is the covariance matrix induced by $k$
+\begin{equation*}
+K(\bm{x}) = \begin{pmatrix}
+k(x_1, x_1) & \dots & k(x_1, x_n) \\
+\vdots & \ddots & \vdots \\
+k(x_n, x_1) & \dots & k(x_n, x_n)
+\end{pmatrix}.
+\end{equation*}
+A common choice for $k$ is a gaussian covariance function
+\begin{equation*}
+k(\bm{x_i},\bm{x_j}) = s^2 \exp\left(-\frac{||\bm{x}_i - \bm{x}_j||^2}{v^2}\right)
+\end{equation*}
+This is circular, but there are ways to introduce covariance to the above. Other covariance functions are discussed in \cite{find_something}. Nevertheless, the GP imposes structure that points $\bm{x}_j$ which are proximal to some $\bm{x}_i$ with respect to the covariance function have high correlation in the mean function $\mu$. Misspecification of the covariance function can hurt an analysis though, either leading to oversmoothed, or undersmoothed predictions.
+
+If $y_i \sim N(\mu(y_i), \sigma^2)$ and $\mu \sim GP(m, k)$ then is the gaussian process with mean and variance informed by the multivariate normal-normal conjugacy. We note though, that the multivariate normal-normal conjugacy implies that the mean function, for instance, updates as
+\begin{equation*}
+m' = \left(K^{-1} + \frac{n}{\sigma^2}I\right)^{-1}\left(K^{-1}m + \frac{n}{\sigma^2}\bar{y}\right)
+\end{equation*}
+and hence requires matrix inversions which take about $\mO(n^3)$, where $n$ is the number of observations \cite{gelman_bayesian_2014}. For modestly sized samples, then, GPs become computationally prohibitive. Many authors have attempted to provide solutions involving Laplace approximations or using subsets of the observations to give a lower-rank matrix. The standard recently has been following \citeauthor{datta_hierarchical_2016} which provides a nearest-neighbor approximation for GPs which is linear in $n$.
+
+\textcolor{purple}{Talk about applications of GPs to spatial and spatiotemporal modeling.}
+
+\subsubsection{Conditionally Autoregressive Priors}
+Suppose we have some $n$ areal units and adjacency matrix $W$. For each pair $(i,j)$ of areal units, we define 
+\begin{equation*}
+c_{ij} = \begin{cases}
+0 & i = j \\
+1 & i\neq j, W_{ij} = 1 \\
+0 & W_{ij} = 0
+\end{cases}
+\end{equation*}
+We define $C = (c_{ij})$. \textcolor{purple}{One definition of a CAR model is that,} according to \citeauthor{cressie_statistics_2011}, a parameter $\bm\theta$ is said to have a (homogeneous) conditionally autoregressive (CAR) prior when
+\begin{equation*}
+\theta_i ~|~ \bm\theta_{-i} \sim N\left(\mu(\theta_i, \bm\theta_{-i}), \tau^2\right)
+\end{equation*}
+where
+\begin{equation*}
+\mu(\theta_i, \bm\theta_{-i}) = \bar\theta + \sum_{j = 1}^n c_{ij}(\theta_j - \bar\theta).
+\end{equation*}
+Then
+\begin{equation*}
+\bm\theta \sim N(\bar\theta, \tau^2(I-C)^{-1}).
+\end{equation*}
+
+\textcolor{purple}{Another definition is given by \citeauthor{halloran_estimation_2000} who} let 
+\begin{equation*}
+W^*_{ij} = \begin{cases}
+n_i & i = j \\
+-1 & i\neq j, W_{ij} = 1 \\
+0 & W_{ij} = 0
+\end{cases}
+\end{equation*}
+and say that $\bm\theta$ follows a (homogeneous) CAR prior when
+\begin{equation*}
+\theta_i ~|~ \bm\theta_{-i} \sim N\left(\frac{(1-\rho)\bar\theta + \rho\sum_{j=1}^nW_{ij}\theta_j}{\alpha}, \frac{\tau^2}{\alpha}\right), \hspace{0.075\linewidth} \alpha = 1-\rho+\rho\sum_{j=1}^nW_{ij}.
+\end{equation*}
+This implies that
+\begin{equation*}
+\bm\theta \sim N(\bar\theta, \tau^2(\rho W^* + (1-\rho)I)^{-1}).
+\end{equation*}
+\textcolor{purple}{I'm not entirely sure which definition is preferred in the literature. I've seen some for both, but not much; I'll have to look into this more. The latter seems to allow for a more flexible model by allowing variable amounts of correlation through the $\rho$ parameter. The former definition has no $\rho$ parameter but otherwise has a very similar form. This is something I will continue to look into.}
+
+\textcolor{purple}{I'll also get more information on applications as I read more, I'm sure.}
+
+\section{Outline of the thesis}
+The remainder of this thesis \textcolor{purple}{might} be structured as follows:
+
+\begin{enumerate}
+\itemsep0em
+\item[] Chapter 2: We discuss the data we will be using
+\item[] Chapter 3: We discuss statistical methods
+\item[] Chapter 4: We implement the statistical methods and include a discussion
+\item[] Chapter 5: Some concluding remarks
+\end{enumerate}
+
+
+ 
+
+
+
+
+
+
+
+\printbibliography[heading=bibintoc]
+
+\end{document}
